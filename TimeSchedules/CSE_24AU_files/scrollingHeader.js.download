@@ -1,0 +1,209 @@
+/******************************************************************************\
+* NOTE: This file depends on jQuery, so add that to your web page also.
+*
+* Add this javascript file to your web page to have a table header scroll down
+* so it is always visible on top of the data it describes.  The table header
+* html needs only a few additions in order to work with this js file:
+*
+* Html before:                      Html after:
+*
+* <table>                           <table class='scroll-header'
+*    <tr>                                 data-scroll-header='table'>
+*       <th>Column One</th>            <thead>
+*       <th>Column Two</th>               <tr>
+*    </tr>                                   <th>Column One</th>
+*    <tr>                                    <th>Column Two</th>
+*       <td>ABC</td>                      </tr>
+*       <td>123</td>                   </thead>
+*    </tr>                             <tbody><!-- start of data -->
+*    <!-- many rows of data -->          <tr>
+* </table>                                   <td>ABC</td>
+*                                            <td>123</td>
+*                                         </tr>
+* The 'data-scroll-type'                  <!-- many rows of data -->
+* attribute can have 1 of 3            </tbody>
+* values: 'table', 'page' or        </table>
+* 'element_XYZ':
+*    table       :  Scrolling header stops at the last row of data in the table.
+*    page        :  Header can scroll all the way to the bottom of the page.
+*    element_XYZ :  Header will stop scrolling when it encounters an element
+*                   named 'XYZ' or at the bottom of the page if 'XYZ' doesn't
+*                   exist.
+* The 'page' and 'element_XYZ' options should be used if the table header is
+* defined in a separate table from the data, or in a <div> element.
+\******************************************************************************/
+
+$(function() {
+	initScrollingHeaders();
+});
+
+var scroll = new Array();
+
+function initScrollingHeaders()
+{
+	var $this, scroller, scrollType;
+
+	$(window)
+		.on("resize",windowResize)
+		.on("scroll",windowScroll);
+
+	$('.scroll-header').each(function() {
+		$this = $(this);
+		scrollType = String($this.data('scroll-type'));
+		if (scrollType == "undefined") {
+			scrollType = "page";
+		}
+
+		if ((scrollType != 'table')
+		&&  (scrollType != 'page')
+		&&  (scrollType.search(/element_/) != 0)) {
+			return true;
+		}
+
+		scroller = {
+			content: $this,
+			float: {
+				content: null,
+				type: scrollType
+			}
+		};
+
+		scroll.push(scroller);
+   });
+
+	if (scroll.length > 0) {
+		windowResize();
+
+		// set z-index for when 2+ headers are scrolling
+		var i,j, z;
+		for (i=0; i<scroll.length; i++) {
+			z = 1;
+			for (j=(i+1); j<scroll.length; j++) {
+				if ((scroll[j].float.top > scroll[i].float.top)
+				&&  (scroll[j].float.top < scroll[i].float.end)) {
+					// this header has a sub-header in its range
+					++z;
+				}
+			}
+			scroll[i].float.content.css('z-index',z);
+		}
+
+		// add stylesheet with rule to hide scrolling header when printing
+		var $style = $("<style type='text/css'/>");
+		$style.html("@media print{.scroll-header-noprint{display:none;}}");
+		$style.appendTo("head");
+	}
+}
+
+
+
+function windowResize()
+{
+	var i,j, floatCells, origCells;
+
+	for (i=0; i<scroll.length; i++) {
+		if (scroll[i].float.content) {
+			scroll[i].float.content.remove();
+		}
+
+		scroll[i].float.content = $(scroll[i].content.prop("outerHTML"));
+		scroll[i].float.content.addClass('scroll-header-noprint');
+		scroll[i].float.content.css('position','absolute');
+		scroll[i].float.content.insertAfter(scroll[i].content);
+			
+		// set width of the column header table to the width of the data table
+		scroll[i].float.content.width( scroll[i].content.width() );
+
+		if ((scroll[i].float.type == "table")
+		&&  (scroll[i].content.find('tr:first').length > 0)) {
+			// remove <tbody> node since we only want the <thead> header portion
+			scroll[i].float.content.find('tbody,tfoot').remove();
+
+			// set header table columns widths to the content table's column widths	
+			// otherwise the cell widths may be off, without the <tbody> data
+			floatCells = scroll[i].float.content.find('tr:first > td,tr:first > th');
+			origCells = scroll[i].content.find('tr:first > td,tr:first > th');
+			for (j=0; j<floatCells.length; j++) {
+				floatCells.eq(j).width(origCells.eq(j).width());
+			}
+		}
+
+		// set the top & bottom properties :
+
+		scroll[i].float.content.top = scroll[i].content.offset().top;
+
+		scroll[i].float.content.end = 999999; // default is a really big number
+		if (scroll[i].float.type == 'table') {
+			scroll[i].float.content.end =
+						scroll[i].float.content.top 
+					+	scroll[i].content.height() //.offset().height ?
+					+	scroll[i].float.content.height()
+					+	scroll[i].content.find('tr:last').height()
+					;
+		}
+		else
+		if (scroll[i].float.type == 'page') {
+			scroll[i].float.content.end = $(document).height();
+		}
+		else {
+			// end defined by element (data-scroll-type='element_XYZ')
+			//elem = document.getElementById(scroll[i].header.type.substr(8));
+			elem = $('#' + scroll[i].float.type.substr(8));
+			if (elem.length > 0) {
+				var elementY =
+						0
+					-	scroll[i].float.content.height()
+					+	elem.offset().top
+					;
+				if (elementY > scroll[i].float.content.top) {
+					scroll[i].float.content.end = elementY;
+				}
+			}
+		}
+	}
+
+	windowScroll();
+}
+
+
+
+function windowScroll()
+{
+	var i,j, prevBottom;
+	var scrolltop = $(window).scrollTop();
+
+	for (i=0; i<scroll.length; i++) {
+		// troll thru all prior headers and stop if one of them is still
+		// being displayed on the page
+		for (j=i-1; j>=0; j--) {
+			prevBottom = 
+					scroll[j].float.content.offset().top
+				+	scroll[j].float.content.height()
+				;
+			if (prevBottom > scroll[i].float.content.end) {
+				scroll[i].float.content.css('top', scroll[i].float.content.end +'px');
+				break;
+			}
+			if (prevBottom > scroll[i].float.content.top) {
+				scroll[i].float.content.css('top', prevBottom +'px');
+				break;
+			}
+		}
+		if (j >= 0) {
+			continue;
+		}
+
+		if (scrolltop > scroll[i].float.content.end) {
+			scroll[i].float.content.css('top', scroll[i].float.content.end +'px');
+			continue;
+		}
+		
+		if (scrolltop > scroll[i].float.content.top) {
+			scroll[i].float.content.css('top', scrolltop +'px');
+			continue;
+		}
+
+		scroll[i].float.content.css('top', scroll[i].float.content.top +'px');
+	}
+}
+
