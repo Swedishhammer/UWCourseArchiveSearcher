@@ -12,7 +12,6 @@ def parseHTMLFile(filePath):
     
     titles = [h1.text.strip() for h1 in dataSoup.find_all('h1')]
     paragraphs = [p.text.strip() for p in dataSoup.find_all('p')]
-    #tables = [table.text.strip() for table in dataSoup.find_all('table')]
     tables = []
     for table in dataSoup.find_all('table'):
         text = table.text.strip()
