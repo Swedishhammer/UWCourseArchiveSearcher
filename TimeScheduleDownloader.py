@@ -24,22 +24,28 @@ Parameters:
     years: int list of all years that should be downloaded
     depts: string list representing department codes
         Will be removed, building up to larger scope
-This method does NOT check if quarters or years are valid, that's up to you to get right
+**This method does NOT check if quarters or years are valid, that's up to you to get right**
 """
 def downloadWebPages(quarters, years, depts, OUTPUT_DIR):
     urlbase = "https://washington.edu/students/timeschd/"
     for year in years:
         for quarter in quarters:
             for dept in depts:
-                url = urlbase + quarter + year + "/" + dept.lower() + ".html"
-                fileName = dept.upper() + "_" + quarter + year + ".html"
+                url = urlbase + quarter + str(year) + "/" + dept.lower() + ".html"
+                fileName = dept.upper() + "_" + quarter + str(year) + ".html"
                 downloadWebPage(url, fileName, OUTPUT_DIR)
                 #Will slow down program but have to be careful to not violate download rate rules
                 time.sleep(1)
 
-testQuarters = ["AUT", "WIN"]
-years = ["2023"]
-depts = ["CSE"]
+testQuarters = ["AUT", "WIN", "SPR"]
+#years = ["2023","2020","2015"]
+years = []
+startYear = 2020
+#+1 is due to range() having an exclusive end
+endYear = 2023 + 1
+for i in range(startYear, endYear):
+    years.append(i)
+depts = ["ENGL"]
 OUTPUT_DIR = "TimeSchedules"
 
 downloadWebPages(testQuarters, years, depts, OUTPUT_DIR)

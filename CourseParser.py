@@ -18,6 +18,8 @@ def parseHTMLFile(filePath):
     print(f"Parsing: {filePath}")
     with open(filePath, 'r', encoding='utf-8') as file:
         dataSoup = BeautifulSoup(file, 'lxml')
+    #This deptCode fails for a couple cases ie. Mechanical Engineering where url uses logical meche
+    #    but the course code listed in the Time Schedule tables is "M E"
     fileName = filePath[(filePath.rindex('/') + 1) : len(filePath)]
     deptCode = fileName[0 : fileName.index("_")]
     print(f"deptCode is {deptCode}")
